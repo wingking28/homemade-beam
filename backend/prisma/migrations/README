@@ -1,0 +1,1 @@
+Run `npm run db:migrate` to apply migrations.
