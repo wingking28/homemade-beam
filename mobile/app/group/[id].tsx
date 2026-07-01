@@ -52,6 +52,7 @@ export default function GroupDetailScreen() {
 
   // Expense detail modal
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedExpenseIsHistory, setSelectedExpenseIsHistory] = useState(false);
   const [settling, setSettling] = useState(false);
 
   // Add expense form
@@ -116,8 +117,9 @@ export default function GroupDetailScreen() {
     });
   }
 
-  function openDetailModal(expense: Expense) {
+  function openDetailModal(expense: Expense, isHistory = false) {
     setSelectedExpense(expense);
+    setSelectedExpenseIsHistory(isHistory);
     detailBackdrop.value = withTiming(1, { duration: 220 });
     detailSheetY.value = withSpring(0, SPRING_CONFIG);
   }
@@ -239,7 +241,7 @@ export default function GroupDetailScreen() {
   }
 
   async function deleteExpense(expenseId: string) {
-    Alert.alert('Delete Expense', 'Are you sure?', [
+    Alert.alert('Delete Expense', 'Are you sure you want to delete this expense? This will permanently remove it for all group members.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -281,6 +283,7 @@ export default function GroupDetailScreen() {
   }
 
   const myBalance = balances.find((b) => b.user.id === user?.id);
+  const isAdmin = group.members.find((m) => m.user.id === user?.id)?.role === 'ADMIN';
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />;
 
   return (
@@ -373,7 +376,7 @@ export default function GroupDetailScreen() {
                 <Text style={styles.empty}>No completed expenses yet.</Text>
               ) : (
                 historyExpenses.map((exp) => (
-                  <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp)} activeOpacity={0.7}>
+                  <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp, true)} activeOpacity={0.7}>
                     <Card>
                       <View style={styles.expRow}>
                         <Avatar name={exp.paidBy.name} size={40} />
@@ -524,7 +527,7 @@ export default function GroupDetailScreen() {
                   return null;
                 })()}
 
-                {selectedExpense.paidBy.id === user?.id && (
+                {(selectedExpenseIsHistory ? isAdmin : selectedExpense.paidBy.id === user?.id) && (
                   <TouchableOpacity
                     style={styles.deleteExpenseBtn}
                     onPress={() => {

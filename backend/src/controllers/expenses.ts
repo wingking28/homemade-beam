@@ -164,7 +164,14 @@ export async function deleteExpense(req: AuthRequest, res: Response): Promise<vo
     return;
   }
 
-  if (expense.paidById !== req.userId) {
+  const isPayer = expense.paidById === req.userId;
+
+  const membership = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId: expense.groupId, userId: req.userId! } },
+  });
+  const isAdmin = membership?.role === 'ADMIN';
+
+  if (!isPayer && !isAdmin) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }
