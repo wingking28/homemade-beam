@@ -395,12 +395,9 @@ export default function GroupDetailScreen() {
 
               {/* Sort toggle */}
               <View style={styles.historyHeader}>
-                <Text style={styles.historyOrderLabel}>
-                  {historyOrder === 'desc' ? 'Newest first' : 'Oldest first'}
-                </Text>
                 <TouchableOpacity onPress={toggleHistoryOrder} style={styles.sortToggleBtn}>
                   <Text style={styles.sortToggleText}>
-                    {historyOrder === 'desc' ? '↑ Oldest first' : '↓ Newest first'}
+                    {historyOrder === 'desc' ? '↓ Newest first' : '↑ Oldest first'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -721,13 +718,8 @@ const styles = StyleSheet.create({
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: Spacing.xs,
-  },
-  historyOrderLabel: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    fontWeight: '500',
   },
   sortToggleBtn: {
     paddingHorizontal: Spacing.sm,
