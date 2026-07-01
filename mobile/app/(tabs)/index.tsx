@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useTabNavigation } from '../../src/context/TabNavigationContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { groupsApi, paymentRequestsApi, Group, PaymentRequest } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
@@ -19,6 +20,7 @@ import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
+  const { goToTab } = useTabNavigation();
   const [groups, setGroups] = useState<Group[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Groups</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/groups')}>
+            <TouchableOpacity onPress={() => goToTab(2)}>
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
