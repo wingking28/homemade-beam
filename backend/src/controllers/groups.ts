@@ -159,6 +159,7 @@ export async function getGroupBalances(req: AuthRequest, res: Response): Promise
     net[paidById] = net[paidById].plus(expense.amount);
 
     for (const share of expense.shares) {
+      if (share.isPaid) continue;
       if (!net[share.userId]) net[share.userId] = new Decimal(0);
       net[share.userId] = net[share.userId].minus(share.amount);
     }

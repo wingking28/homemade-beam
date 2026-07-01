@@ -87,6 +87,23 @@ export async function getGroupExpenses(req: AuthRequest, res: Response): Promise
   res.json({ expenses });
 }
 
+export async function settleShare(req: AuthRequest, res: Response): Promise<void> {
+  const share = await prisma.expenseShare.findUnique({ where: { id: req.params.shareId } });
+  if (!share) {
+    res.status(404).json({ error: 'Share not found' });
+    return;
+  }
+  if (share.userId !== req.userId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+  const updated = await prisma.expenseShare.update({
+    where: { id: req.params.shareId },
+    data: { isPaid: true },
+  });
+  res.json({ share: updated });
+}
+
 export async function deleteExpense(req: AuthRequest, res: Response): Promise<void> {
   const expense = await prisma.expense.findUnique({ where: { id: req.params.id } });
   if (!expense) {

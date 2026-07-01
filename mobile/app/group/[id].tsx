@@ -49,6 +49,10 @@ export default function GroupDetailScreen() {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [showAddExpense, setShowAddExpense] = useState(false);
 
+  // Expense detail modal
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [settling, setSettling] = useState(false);
+
   // Add expense form
   const [expDesc, setExpDesc] = useState('');
   const [expAmount, setExpAmount] = useState('');
@@ -158,6 +162,19 @@ export default function GroupDetailScreen() {
     ]);
   }
 
+  async function settleMyShare(shareId: string) {
+    setSettling(true);
+    try {
+      await expensesApi.settleShare(shareId);
+      setSelectedExpense(null);
+      load();
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSettling(false);
+    }
+  }
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>;
   }
@@ -189,7 +206,7 @@ export default function GroupDetailScreen() {
       {myBalance && (
         <View style={styles.myBalance}>
           <Text style={styles.myBalanceLabel}>Your balance</Text>
-          <BalanceBadge amount={myBalance.net} size="lg" />
+          <BalanceBadge amount={myBalance.net} size="lg" firstPerson />
         </View>
       )}
 
@@ -219,23 +236,21 @@ export default function GroupDetailScreen() {
                   const myShare = exp.shares.find((s) => s.user.id === user?.id);
                   const iPaid = exp.paidBy.id === user?.id;
                   return (
-                    <Card key={exp.id}>
-                      <View style={styles.expRow}>
-                        <Avatar name={exp.paidBy.name} size={40} />
-                        <View style={styles.expInfo}>
-                          <Text style={styles.expDesc}>{exp.description}</Text>
-                          <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
-                          <Text style={styles.expDate}>{new Date(exp.createdAt).toLocaleDateString()}</Text>
+                    <TouchableOpacity key={exp.id} onPress={() => setSelectedExpense(exp)} activeOpacity={0.7}>
+                      <Card>
+                        <View style={styles.expRow}>
+                          <Avatar name={exp.paidBy.name} size={40} />
+                          <View style={styles.expInfo}>
+                            <Text style={styles.expDesc}>{exp.description}</Text>
+                            <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
+                            <Text style={styles.expDate}>{new Date(exp.createdAt).toLocaleDateString()}</Text>
+                          </View>
+                          {myShare && !iPaid && !myShare.isPaid && <BalanceBadge amount={-myShare.amount} size="sm" firstPerson />}
+                          {myShare && !iPaid && myShare.isPaid && <BalanceBadge amount={0} size="sm" />}
+                          {iPaid && myShare && <BalanceBadge amount={Number(exp.amount) - Number(myShare.amount)} size="sm" firstPerson />}
                         </View>
-                        {myShare && !iPaid && <BalanceBadge amount={-myShare.amount} size="sm" />}
-                        {iPaid && myShare && <BalanceBadge amount={Number(exp.amount) - Number(myShare.amount)} size="sm" />}
-                      </View>
-                      {(iPaid || group.members.find((m) => m.userId === user?.id)?.role === 'ADMIN') && (
-                        <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteExpense(exp.id)}>
-                          <Text style={styles.deleteBtnText}>Delete</Text>
-                        </TouchableOpacity>
-                      )}
-                    </Card>
+                      </Card>
+                    </TouchableOpacity>
                   );
                 })
               )}
@@ -308,6 +323,85 @@ export default function GroupDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Expense Detail Modal */}
+      <Modal visible={!!selectedExpense} animationType="slide" transparent onRequestClose={() => setSelectedExpense(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: Spacing.lg + insets.bottom }]}>
+            {selectedExpense && (
+              <>
+                <View style={styles.expDetailHeader}>
+                  <View style={styles.expDetailInfo}>
+                    <Text style={styles.modalTitle}>{selectedExpense.description}</Text>
+                    <Text style={styles.expDetailMeta}>
+                      {selectedExpense.paidBy.name} paid ${Number(selectedExpense.amount).toFixed(2)} · {new Date(selectedExpense.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedExpense(null)} style={styles.closeBtn}>
+                    <Text style={styles.closeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.shareHeading}>Who owes what</Text>
+                {selectedExpense.shares.map((s) => {
+                  const isPayer = s.user.id === selectedExpense.paidBy.id;
+                  const isMe = s.user.id === user?.id;
+                  return (
+                    <View key={s.id} style={styles.shareRow}>
+                      <Avatar name={s.user.name} size={36} />
+                      <Text style={styles.shareName}>{isMe ? 'You' : s.user.name}</Text>
+                      {isPayer ? (
+                        <View style={styles.paidBadge}>
+                          <Text style={styles.paidBadgeText}>paid</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.oweBadge, s.isPaid && styles.oweBadgeSettled]}>
+                          <Text style={[styles.oweBadgeText, s.isPaid && styles.oweBadgeTextSettled]}>
+                            {s.isPaid ? 'paid' : `owes $${Number(s.amount).toFixed(2)}`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+
+                {(() => {
+                  const myShare = selectedExpense.shares.find((s) => s.user.id === user?.id);
+                  const iPaid = selectedExpense.paidBy.id === user?.id;
+                  if (!iPaid && myShare && !myShare.isPaid) {
+                    return (
+                      <TouchableOpacity
+                        style={styles.settleBtn}
+                        onPress={() => settleMyShare(myShare.id)}
+                        disabled={settling}
+                      >
+                        {settling
+                          ? <ActivityIndicator color="#fff" />
+                          : <Text style={styles.settleBtnText}>Mark as Paid</Text>
+                        }
+                      </TouchableOpacity>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {(selectedExpense.paidBy.id === user?.id ||
+                  group.members.find((m) => m.userId === user?.id)?.role === 'ADMIN') && (
+                  <TouchableOpacity
+                    style={styles.deleteExpenseBtn}
+                    onPress={() => {
+                      setSelectedExpense(null);
+                      deleteExpense(selectedExpense.id);
+                    }}
+                  >
+                    <Text style={styles.deleteExpenseBtnText}>Delete Expense</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -371,8 +465,54 @@ const styles = StyleSheet.create({
   expDesc: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
   expPaid: { fontSize: FontSize.sm, color: Colors.textSecondary },
   expDate: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  deleteBtn: { marginTop: Spacing.sm, paddingVertical: Spacing.xs, alignItems: 'flex-end' },
-  deleteBtnText: { color: Colors.danger, fontSize: FontSize.sm, fontWeight: '600' },
+  expDetailHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  expDetailInfo: { flex: 1 },
+  expDetailMeta: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  closeBtn: { padding: Spacing.xs },
+  closeBtnText: { fontSize: FontSize.md, color: Colors.textMuted },
+  shareHeading: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: Spacing.xs,
+  },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  shareName: { flex: 1, fontSize: FontSize.md, color: Colors.text, fontWeight: '500' },
+  paidBadge: {
+    backgroundColor: Colors.successLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  paidBadgeText: { fontSize: FontSize.sm, color: Colors.success, fontWeight: '700' },
+  oweBadge: {
+    backgroundColor: Colors.dangerLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  oweBadgeSettled: { backgroundColor: Colors.successLight },
+  oweBadgeText: { fontSize: FontSize.sm, color: Colors.danger, fontWeight: '700' },
+  oweBadgeTextSettled: { color: Colors.success },
+  settleBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+  },
+  settleBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
+  deleteExpenseBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.danger,
+    borderRadius: Radius.md,
+  },
+  deleteExpenseBtnText: { color: Colors.danger, fontWeight: '700', fontSize: FontSize.sm },
   balanceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   balanceInfo: { flex: 1 },
   balanceName: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },

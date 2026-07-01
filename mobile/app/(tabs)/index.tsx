@@ -152,7 +152,7 @@ export default function HomeScreen() {
                     <Text style={styles.requestSender}>{req.sender.name}</Text>
                     <Text style={styles.requestDesc}>{req.description}</Text>
                   </View>
-                  <BalanceBadge amount={-Number(req.amount)} size="sm" />
+                  <BalanceBadge amount={-Number(req.amount)} size="sm" firstPerson />
                 </View>
               </Card>
             ))}

@@ -4,6 +4,7 @@ import { Colors, Radius, FontSize, Spacing } from '../constants/theme';
 interface BalanceBadgeProps {
   amount: number;
   size?: 'sm' | 'md' | 'lg';
+  firstPerson?: boolean;
 }
 
 function formatCurrency(amount: number): string {
@@ -12,13 +13,17 @@ function formatCurrency(amount: number): string {
   );
 }
 
-export function BalanceBadge({ amount, size = 'md' }: BalanceBadgeProps) {
+export function BalanceBadge({ amount, size = 'md', firstPerson = false }: BalanceBadgeProps) {
   const isPositive = amount > 0;
   const isZero = amount === 0;
 
   const bg = isZero ? Colors.border : isPositive ? Colors.successLight : Colors.dangerLight;
   const color = isZero ? Colors.textMuted : isPositive ? Colors.success : Colors.danger;
-  const label = isZero ? 'Settled' : isPositive ? `+${formatCurrency(amount)}` : `-${formatCurrency(amount)}`;
+  const label = isZero
+    ? 'Paid'
+    : isPositive
+    ? firstPerson ? `You are owed ${formatCurrency(amount)}` : `Owed ${formatCurrency(amount)}`
+    : firstPerson ? `You owe ${formatCurrency(amount)}` : `Owes ${formatCurrency(amount)}`;
 
   const fontSize = size === 'sm' ? FontSize.xs : size === 'lg' ? FontSize.lg : FontSize.sm;
 

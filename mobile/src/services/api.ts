@@ -88,6 +88,8 @@ export const expensesApi = {
     data: { description: string; amount: number; splits?: { userId: string; amount: number }[] }
   ) => api.post<{ expense: Expense }>(`/expenses/groups/${groupId}`, data),
   delete: (id: string) => api.delete<{ success: boolean }>(`/expenses/${id}`),
+  settleShare: (shareId: string) =>
+    api.put<{ share: ExpenseShare }>(`/expenses/shares/${shareId}/settle`, {}),
 };
 
 // Payment requests
