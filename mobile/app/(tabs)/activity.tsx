@@ -50,7 +50,7 @@ export default function ActivityScreen() {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [order, setOrder] = useState<Order>('desc');
 
   const tabRef = useRef(tab);
@@ -257,7 +257,7 @@ export default function ActivityScreen() {
         {/* Status filter + sort */}
         <View style={styles.filterRow}>
           <View style={styles.chipGroup}>
-            {(['all', 'active', 'inactive'] as StatusFilter[]).map((sf) => (
+            {(['active', 'inactive', 'all'] as StatusFilter[]).map((sf) => (
               <TouchableOpacity
                 key={sf}
                 style={[styles.chip, statusFilter === sf && styles.chipActive]}
