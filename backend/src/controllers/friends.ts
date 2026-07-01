@@ -21,8 +21,16 @@ export async function sendFriendRequest(req: AuthRequest, res: Response): Promis
   });
 
   if (existing) {
-    res.status(409).json({ error: 'Friend request already exists', request: existing });
-    return;
+    if (existing.status === 'ACCEPTED') {
+      res.status(409).json({ error: 'Already friends', request: existing });
+      return;
+    }
+    if (existing.status === 'PENDING') {
+      res.status(409).json({ error: 'Friend request already pending', request: existing });
+      return;
+    }
+    // DECLINED — delete the old record so a fresh request can be created
+    await prisma.friendRequest.delete({ where: { id: existing.id } });
   }
 
   const request = await prisma.friendRequest.create({
