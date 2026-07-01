@@ -22,6 +22,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import {
   groupsApi,
   expensesApi,
@@ -66,6 +67,7 @@ export default function GroupDetailScreen() {
   const [historyOrder, setHistoryOrder] = useState<'desc' | 'asc'>('desc');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
   const historyInitializedRef = useRef(false);
   const historyOrderRef = useRef<'desc' | 'asc'>('desc');
 
@@ -216,6 +218,12 @@ export default function GroupDetailScreen() {
     loadHistory(historyPage + 1, historyOrderRef.current);
   }
 
+  const filteredHistoryExpenses = historySearchQuery.trim()
+    ? historyExpenses.filter((exp) =>
+        exp.description.toLowerCase().includes(historySearchQuery.trim().toLowerCase())
+      )
+    : historyExpenses;
+
   async function addExpense() {
     if (!expDesc.trim() || !expAmount) {
       Alert.alert('Error', 'Please fill all fields');
@@ -358,6 +366,25 @@ export default function GroupDetailScreen() {
 
             {/* History — fully settled expenses, paginated */}
             <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
+              {/* Search */}
+              <View style={styles.searchWrapper}>
+                <Ionicons name="search-outline" size={18} color={Colors.textMuted} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search expenses..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={historySearchQuery}
+                  onChangeText={setHistorySearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {historySearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setHistorySearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Sort toggle */}
               <View style={styles.historyHeader}>
                 <Text style={styles.historyOrderLabel}>
@@ -374,8 +401,10 @@ export default function GroupDetailScreen() {
                 <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
               ) : historyExpenses.length === 0 ? (
                 <Text style={styles.empty}>No completed expenses yet.</Text>
+              ) : filteredHistoryExpenses.length === 0 ? (
+                <Text style={styles.empty}>No expenses match your search.</Text>
               ) : (
-                historyExpenses.map((exp) => (
+                filteredHistoryExpenses.map((exp) => (
                   <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp, true)} activeOpacity={0.7}>
                     <Card>
                       <View style={styles.expRow}>
@@ -663,6 +692,24 @@ const styles = StyleSheet.create({
   },
   adminText: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: '700' },
   // History tab
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  searchIcon: {},
+  searchInput: {
+    flex: 1,
+    fontSize: FontSize.md,
+    color: Colors.text,
+  },
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
