@@ -43,6 +43,8 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post<{ user: User; token: string }>('/auth/login', data),
   getMe: () => api.get<{ user: User }>('/auth/me'),
+  updateProfile: (data: { name?: string; avatarUrl?: string }) =>
+    api.put<{ user: User }>('/auth/profile', data),
 };
 
 // Users

@@ -77,7 +77,9 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Good day,</Text>
             <Text style={styles.name}>{user?.name ?? 'there'} 👋</Text>
           </View>
-          <Avatar name={user?.name ?? '?'} size={44} />
+          <TouchableOpacity onPress={() => goToTab(4)}>
+            <Avatar name={user?.name ?? '?'} size={44} uri={user?.avatarUrl ?? undefined} />
+          </TouchableOpacity>
         </View>
 
         {/* Balance Card */}

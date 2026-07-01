@@ -68,6 +68,25 @@ export async function login(req: Request, res: Response): Promise<void> {
   res.json({ user: safeUser, token: signToken(user.id) });
 }
 
+const updateProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  avatarUrl: z.string().optional(),
+});
+
+export async function updateProfile(req: AuthRequest, res: Response): Promise<void> {
+  const result = updateProfileSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: result.data,
+    select: { id: true, email: true, name: true, avatarUrl: true, createdAt: true },
+  });
+  res.json({ user });
+}
+
 export async function getMe(req: AuthRequest, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },

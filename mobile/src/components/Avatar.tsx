@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { Colors, Radius } from '../constants/theme';
 
 interface AvatarProps {
@@ -18,13 +18,22 @@ function colorForName(name: string): string {
   return PALETTE[Math.abs(hash) % PALETTE.length];
 }
 
-export function Avatar({ name, size = 40 }: AvatarProps) {
+export function Avatar({ name, size = 40, uri }: AvatarProps) {
   const initials = name
     .split(' ')
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    );
+  }
 
   return (
     <View
