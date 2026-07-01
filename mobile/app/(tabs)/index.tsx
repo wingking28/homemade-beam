@@ -85,8 +85,8 @@ export default function HomeScreen() {
         {/* Balance Card */}
         <Card style={[styles.balanceCard, { backgroundColor: Colors.primary }]}>
           <Text style={styles.balanceLabel}>Overall Balance</Text>
-          <Text style={[styles.balanceAmount, { color: netBalance >= 0 ? Colors.success : Colors.danger }]}>
-            {netBalance >= 0 ? '+' : '-'}${Math.abs(netBalance).toFixed(2)}
+          <Text style={[styles.balanceAmount, { color: netBalance > 0 ? Colors.success : netBalance < 0 ? Colors.danger : '#FFFFFF' }]}>
+            {netBalance > 0 ? '+' : netBalance < 0 ? '-' : ''}${Math.abs(netBalance).toFixed(2)}
           </Text>
           <View style={styles.balanceRow}>
             <View style={styles.balanceStat}>
