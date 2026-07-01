@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import { PaymentRequestStatus } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../utils/prisma';
 
@@ -35,25 +36,63 @@ export async function createPaymentRequest(req: AuthRequest, res: Response): Pro
 }
 
 export async function getPaymentRequests(req: AuthRequest, res: Response): Promise<void> {
-  const { type = 'all' } = req.query as { type?: 'sent' | 'received' | 'all' };
+  const { type = 'all', status, search } = req.query as {
+    type?: 'sent' | 'received' | 'all';
+    status?: 'active' | 'inactive';
+    search?: string;
+  };
+  const order = req.query.order === 'asc' ? ('asc' as const) : ('desc' as const);
+  const paginate = req.query.page !== undefined || req.query.limit !== undefined;
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const searchTerm = search?.trim();
 
-  const where =
+  const typeWhere =
     type === 'sent'
       ? { senderId: req.userId }
       : type === 'received'
         ? { receiverId: req.userId }
         : { OR: [{ senderId: req.userId }, { receiverId: req.userId }] };
 
-  const requests = await prisma.paymentRequest.findMany({
-    where,
-    include: {
-      sender: { select: { id: true, name: true, avatarUrl: true } },
-      receiver: { select: { id: true, name: true, avatarUrl: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  const statusWhere =
+    status === 'active'
+      ? { status: PaymentRequestStatus.PENDING }
+      : status === 'inactive'
+        ? { status: { in: [PaymentRequestStatus.PAID, PaymentRequestStatus.CANCELLED] } }
+        : {};
 
-  res.json({ requests });
+  const searchWhere = searchTerm
+    ? {
+        OR: [
+          { description: { contains: searchTerm, mode: 'insensitive' as const } },
+          { sender: { name: { contains: searchTerm, mode: 'insensitive' as const } } },
+          { receiver: { name: { contains: searchTerm, mode: 'insensitive' as const } } },
+        ],
+      }
+    : {};
+
+  const where = { AND: [typeWhere, statusWhere, searchWhere] };
+
+  const [requests, total] = await Promise.all([
+    prisma.paymentRequest.findMany({
+      where,
+      include: {
+        sender: { select: { id: true, name: true, avatarUrl: true } },
+        receiver: { select: { id: true, name: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: order },
+      ...(paginate ? { skip: (page - 1) * limit, take: limit } : {}),
+    }),
+    prisma.paymentRequest.count({ where }),
+  ]);
+
+  res.json({
+    requests,
+    total,
+    page: paginate ? page : 1,
+    limit: paginate ? limit : total,
+    hasMore: paginate ? page * limit < total : false,
+  });
 }
 
 export async function updatePaymentRequestStatus(req: AuthRequest, res: Response): Promise<void> {

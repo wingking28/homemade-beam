@@ -107,10 +107,33 @@ export const expensesApi = {
 
 // Payment requests
 export const paymentRequestsApi = {
-  getAll: (type?: 'sent' | 'received' | 'all') =>
-    api.get<{ requests: PaymentRequest[] }>(
-      `/payment-requests${type ? `?type=${type}` : ''}`
-    ),
+  getAll: (
+    params?:
+      | 'sent'
+      | 'received'
+      | 'all'
+      | {
+          type?: 'sent' | 'received' | 'all';
+          page?: number;
+          limit?: number;
+          order?: 'desc' | 'asc';
+          search?: string;
+          status?: 'active' | 'inactive';
+        }
+  ) => {
+    const opts = typeof params === 'string' ? { type: params } : params;
+    const qs = new URLSearchParams();
+    if (opts?.type) qs.set('type', opts.type);
+    if (opts?.page) qs.set('page', String(opts.page));
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    if (opts?.order) qs.set('order', opts.order);
+    if (opts?.search) qs.set('search', opts.search);
+    if (opts?.status) qs.set('status', opts.status);
+    const query = qs.toString();
+    return api.get<{ requests: PaymentRequest[]; total: number; page: number; limit: number; hasMore: boolean }>(
+      `/payment-requests${query ? `?${query}` : ''}`
+    );
+  },
   create: (data: { receiverId: string; amount: number; description: string }) =>
     api.post<{ request: PaymentRequest }>('/payment-requests', data),
   updateStatus: (id: string, status: 'PAID' | 'CANCELLED') =>

@@ -136,6 +136,8 @@ model PaymentRequest {
   sender   User @relation("RequestSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("RequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  @@index([senderId, status, createdAt])
+  @@index([receiverId, status, createdAt])
   @@map("payment_requests")
 }
 
