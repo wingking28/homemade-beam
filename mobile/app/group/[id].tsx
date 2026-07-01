@@ -355,7 +355,15 @@ export default function GroupDetailScreen() {
                           </View>
                           {myShare && !iPaid && !myShare.isPaid && <BalanceBadge amount={-myShare.amount} size="sm" firstPerson />}
                           {myShare && !iPaid && myShare.isPaid && <BalanceBadge amount={0} size="sm" />}
-                          {iPaid && myShare && <BalanceBadge amount={Number(exp.amount) - Number(myShare.amount)} size="sm" firstPerson />}
+                          {iPaid && myShare && (
+                            <BalanceBadge
+                              amount={exp.shares
+                                .filter((s) => s.user.id !== user?.id && !s.isPaid)
+                                .reduce((sum, s) => sum + Number(s.amount), 0)}
+                              size="sm"
+                              firstPerson
+                            />
+                          )}
                         </View>
                       </Card>
                     </TouchableOpacity>
