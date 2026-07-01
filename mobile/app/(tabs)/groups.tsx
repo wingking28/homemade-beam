@@ -171,7 +171,7 @@ export default function GroupsScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={[styles.fab, { bottom: Spacing.xl + insets.bottom }]} onPress={openCreate}>
+      <TouchableOpacity style={styles.fab} onPress={openCreate}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   avatarMoreText: { fontSize: 9, fontWeight: '700', color: Colors.primary },
   fab: {
     position: 'absolute',
-    bottom: Spacing.xl,
+    bottom: Spacing.lg,
     right: Spacing.lg,
     width: 56,
     height: 56,
