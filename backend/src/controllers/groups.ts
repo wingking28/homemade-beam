@@ -59,12 +59,13 @@ export async function getGroup(req: AuthRequest, res: Response): Promise<void> {
         include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
       },
       expenses: {
+        where: { isSettled: false },
         include: {
           paidBy: { select: { id: true, name: true, avatarUrl: true } },
           shares: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: 50,
       },
     },
   });

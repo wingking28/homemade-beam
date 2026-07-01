@@ -83,6 +83,19 @@ export const groupsApi = {
 export const expensesApi = {
   getForGroup: (groupId: string) =>
     api.get<{ expenses: Expense[] }>(`/expenses/groups/${groupId}`),
+  getHistory: (
+    groupId: string,
+    params?: { page?: number; limit?: number; order?: 'desc' | 'asc' }
+  ) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.order) qs.set('order', params.order);
+    const query = qs.toString();
+    return api.get<{ expenses: Expense[]; total: number; page: number; limit: number; hasMore: boolean }>(
+      `/expenses/groups/${groupId}/history${query ? `?${query}` : ''}`
+    );
+  },
   create: (
     groupId: string,
     data: { description: string; amount: number; splits?: { userId: string; amount: number }[] }
@@ -149,6 +162,7 @@ export interface Expense {
   amount: number;
   paidBy: User;
   shares: ExpenseShare[];
+  isSettled?: boolean;
   createdAt: string;
 }
 

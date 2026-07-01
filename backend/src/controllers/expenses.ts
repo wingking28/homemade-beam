@@ -87,6 +87,37 @@ export async function getGroupExpenses(req: AuthRequest, res: Response): Promise
   res.json({ expenses });
 }
 
+export async function getGroupExpenseHistory(req: AuthRequest, res: Response): Promise<void> {
+  const { groupId } = req.params;
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const order = req.query.order === 'asc' ? ('asc' as const) : ('desc' as const);
+
+  const membership = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId: req.userId! } },
+  });
+  if (!membership) {
+    res.status(403).json({ error: 'Not a member of this group' });
+    return;
+  }
+
+  const [expenses, total] = await Promise.all([
+    prisma.expense.findMany({
+      where: { groupId, isSettled: true },
+      include: {
+        paidBy: { select: { id: true, name: true, avatarUrl: true } },
+        shares: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } },
+      },
+      orderBy: { createdAt: order },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.expense.count({ where: { groupId, isSettled: true } }),
+  ]);
+
+  res.json({ expenses, total, page, limit, hasMore: page * limit < total });
+}
+
 export async function settleShare(req: AuthRequest, res: Response): Promise<void> {
   const share = await prisma.expenseShare.findUnique({ where: { id: req.params.shareId } });
   if (!share) {
@@ -101,6 +132,28 @@ export async function settleShare(req: AuthRequest, res: Response): Promise<void
     where: { id: req.params.shareId },
     data: { isPaid: true },
   });
+
+  // Check if all non-payer shares are now paid → mark expense as settled
+  const expense = await prisma.expense.findUnique({
+    where: { id: share.expenseId },
+    select: {
+      paidById: true,
+      isSettled: true,
+      shares: { select: { userId: true, isPaid: true } },
+    },
+  });
+  if (expense && !expense.isSettled) {
+    const allNonPayerPaid = expense.shares
+      .filter((s) => s.userId !== expense.paidById)
+      .every((s) => s.isPaid);
+    if (allNonPayerPaid) {
+      await prisma.expense.update({
+        where: { id: share.expenseId },
+        data: { isSettled: true },
+      });
+    }
+  }
+
   res.json({ share: updated });
 }
 
@@ -111,11 +164,7 @@ export async function deleteExpense(req: AuthRequest, res: Response): Promise<vo
     return;
   }
 
-  const membership = await prisma.groupMember.findUnique({
-    where: { groupId_userId: { groupId: expense.groupId, userId: req.userId! } },
-  });
-
-  if (expense.paidById !== req.userId && membership?.role !== 'ADMIN') {
+  if (expense.paidById !== req.userId) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,7 @@ import { Card } from '../../src/components/Card';
 import { BalanceBadge } from '../../src/components/BalanceBadge';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
 
-const PAGES = ['Expenses', 'Balances', 'Members'] as const;
+const PAGES = ['Expenses', 'History', 'Members'] as const;
 const SPRING_CONFIG = { damping: 20, stiffness: 200, mass: 0.8 };
 
 export default function GroupDetailScreen() {
@@ -57,6 +57,15 @@ export default function GroupDetailScreen() {
   const [expDesc, setExpDesc] = useState('');
   const [expAmount, setExpAmount] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // History tab state
+  const [historyExpenses, setHistoryExpenses] = useState<Expense[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyOrder, setHistoryOrder] = useState<'desc' | 'asc'>('desc');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const historyInitializedRef = useRef(false);
+  const historyOrderRef = useRef<'desc' | 'asc'>('desc');
 
   // Pager animation
   const translateX = useSharedValue(0);
@@ -100,6 +109,21 @@ export default function GroupDetailScreen() {
       runOnJS(setActivePageIndex)(target);
     });
 
+  const loadHistory = useCallback(async (page: number, order: 'desc' | 'asc', reset?: boolean) => {
+    if (!id) return;
+    setHistoryLoading(true);
+    try {
+      const result = await expensesApi.getHistory(id, { page, order });
+      setHistoryExpenses((prev) => (reset ? result.expenses : [...prev, ...result.expenses]));
+      setHistoryHasMore(result.hasMore);
+      setHistoryPage(page);
+    } catch {
+      // silent
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [id]);
+
   async function load() {
     if (!id) return;
     try {
@@ -118,7 +142,35 @@ export default function GroupDetailScreen() {
   }
 
   useEffect(() => { load(); }, [id]);
-  const onRefresh = useCallback(() => { setRefreshing(true); load(); }, []);
+
+  // Lazy-load history when the History tab is first visited
+  useEffect(() => {
+    if (activePageIndex === 1 && !historyInitializedRef.current) {
+      historyInitializedRef.current = true;
+      loadHistory(1, historyOrderRef.current, true);
+    }
+  }, [activePageIndex, loadHistory]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load();
+    if (historyInitializedRef.current) {
+      loadHistory(1, historyOrderRef.current, true);
+    }
+  }, [loadHistory]);
+
+  function toggleHistoryOrder() {
+    const newOrder = historyOrderRef.current === 'desc' ? 'asc' : 'desc';
+    historyOrderRef.current = newOrder;
+    setHistoryOrder(newOrder);
+    setHistoryExpenses([]);
+    loadHistory(1, newOrder, true);
+  }
+
+  function loadMoreHistory() {
+    if (historyLoading || !historyHasMore) return;
+    loadHistory(historyPage + 1, historyOrderRef.current);
+  }
 
   async function addExpense() {
     if (!expDesc.trim() || !expAmount) {
@@ -154,6 +206,9 @@ export default function GroupDetailScreen() {
           try {
             await expensesApi.delete(expenseId);
             load();
+            if (historyInitializedRef.current) {
+              loadHistory(1, historyOrderRef.current, true);
+            }
           } catch (err: unknown) {
             Alert.alert('Error', err instanceof Error ? err.message : 'Failed');
           }
@@ -227,10 +282,10 @@ export default function GroupDetailScreen() {
         <View style={styles.pager}>
           <Animated.View style={[{ flexDirection: 'row', flex: 1, width: width * PAGES.length }, pagerStyle]}>
 
-            {/* Expenses */}
+            {/* Expenses — active (unsettled) only */}
             <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
               {(group.expenses ?? []).length === 0 ? (
-                <Text style={styles.empty}>No expenses yet. Add one!</Text>
+                <Text style={styles.empty}>No active expenses. Add one!</Text>
               ) : (
                 (group.expenses ?? []).map((exp: Expense) => {
                   const myShare = exp.shares.find((s) => s.user.id === user?.id);
@@ -256,17 +311,57 @@ export default function GroupDetailScreen() {
               )}
             </ScrollView>
 
-            {/* Balances */}
+            {/* History — fully settled expenses, paginated */}
             <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
-              {balances.map((b) => (
-                <Card key={b.user.id} style={styles.balanceRow}>
-                  <Avatar name={b.user.name} size={40} />
-                  <View style={styles.balanceInfo}>
-                    <Text style={styles.balanceName}>{b.user.name}</Text>
-                  </View>
-                  <BalanceBadge amount={b.net} size="md" />
-                </Card>
-              ))}
+              {/* Sort toggle */}
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyOrderLabel}>
+                  {historyOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+                </Text>
+                <TouchableOpacity onPress={toggleHistoryOrder} style={styles.sortToggleBtn}>
+                  <Text style={styles.sortToggleText}>
+                    {historyOrder === 'desc' ? '↑ Oldest first' : '↓ Newest first'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {historyLoading && historyExpenses.length === 0 ? (
+                <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
+              ) : historyExpenses.length === 0 ? (
+                <Text style={styles.empty}>No completed expenses yet.</Text>
+              ) : (
+                historyExpenses.map((exp) => (
+                  <TouchableOpacity key={exp.id} onPress={() => setSelectedExpense(exp)} activeOpacity={0.7}>
+                    <Card>
+                      <View style={styles.expRow}>
+                        <Avatar name={exp.paidBy.name} size={40} />
+                        <View style={styles.expInfo}>
+                          <Text style={styles.expDesc}>{exp.description}</Text>
+                          <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
+                          <Text style={styles.expDate}>{new Date(exp.createdAt).toLocaleDateString()}</Text>
+                        </View>
+                        <View style={styles.settledBadge}>
+                          <Text style={styles.settledBadgeText}>Settled</Text>
+                        </View>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                ))
+              )}
+
+              {historyHasMore && (
+                <TouchableOpacity
+                  style={styles.loadMoreBtn}
+                  onPress={loadMoreHistory}
+                  disabled={historyLoading}
+                >
+                  {historyLoading ? (
+                    <ActivityIndicator color={Colors.primary} size="small" />
+                  ) : (
+                    <Text style={styles.loadMoreText}>Load more</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </ScrollView>
 
             {/* Members */}
@@ -294,7 +389,7 @@ export default function GroupDetailScreen() {
       {/* Add Expense Modal */}
       <Modal visible={showAddExpense} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: Spacing.lg + insets.bottom }]}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + Spacing.md }]}>
             <Text style={styles.modalTitle}>Add Expense</Text>
             <Text style={styles.modalHint}>Will be split equally among all {group.members.length} members.</Text>
             <TextInput
@@ -327,7 +422,7 @@ export default function GroupDetailScreen() {
       {/* Expense Detail Modal */}
       <Modal visible={!!selectedExpense} animationType="slide" transparent onRequestClose={() => setSelectedExpense(null)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: Spacing.lg + insets.bottom }]}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + Spacing.md }]}>
             {selectedExpense && (
               <>
                 <View style={styles.expDetailHeader}>
@@ -385,8 +480,7 @@ export default function GroupDetailScreen() {
                   return null;
                 })()}
 
-                {(selectedExpense.paidBy.id === user?.id ||
-                  group.members.find((m) => m.userId === user?.id)?.role === 'ADMIN') && (
+                {selectedExpense.paidBy.id === user?.id && (
                   <TouchableOpacity
                     style={styles.deleteExpenseBtn}
                     onPress={() => {
@@ -497,7 +591,6 @@ const styles = StyleSheet.create({
   oweBadgeText: { fontSize: FontSize.sm, color: Colors.danger, fontWeight: '700' },
   oweBadgeTextSettled: { color: Colors.success },
   settleBtn: {
-    marginTop: Spacing.sm,
     paddingVertical: Spacing.md,
     alignItems: 'center',
     backgroundColor: Colors.primary,
@@ -505,17 +598,12 @@ const styles = StyleSheet.create({
   },
   settleBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
   deleteExpenseBtn: {
-    marginTop: Spacing.sm,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.danger,
+    backgroundColor: Colors.danger,
     borderRadius: Radius.md,
   },
-  deleteExpenseBtnText: { color: Colors.danger, fontWeight: '700', fontSize: FontSize.sm },
-  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  balanceInfo: { flex: 1 },
-  balanceName: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
+  deleteExpenseBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   memberInfo: { flex: 1 },
   memberName: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
@@ -527,6 +615,54 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   adminText: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: '700' },
+  // History tab
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
+  historyOrderLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  sortToggleBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sortToggleText: {
+    fontSize: FontSize.xs,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  settledBadge: {
+    backgroundColor: Colors.successLight,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  settledBadgeText: {
+    fontSize: FontSize.sm,
+    color: Colors.success,
+    fontWeight: '700',
+  },
+  loadMoreBtn: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    marginTop: Spacing.xs,
+  },
+  loadMoreText: {
+    fontSize: FontSize.sm,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: Colors.surface,
