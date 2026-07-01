@@ -34,9 +34,11 @@ import {
 } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { Avatar } from '../../src/components/Avatar';
+import { GroupAvatar } from '../../src/components/GroupAvatar';
 import { Card } from '../../src/components/Card';
 import { BalanceBadge } from '../../src/components/BalanceBadge';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
+import { pickAndResizeSquareImage } from '../../src/utils/imagePicker';
 
 const PAGES = ['Expenses', 'History', 'Members'] as const;
 const SPRING_CONFIG = { damping: 20, stiffness: 200, mass: 0.8 };
@@ -52,6 +54,7 @@ export default function GroupDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Expense detail modal
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -284,6 +287,42 @@ export default function GroupDetailScreen() {
     }
   }
 
+  async function handleChangeGroupPhoto() {
+    setUploadingPhoto(true);
+    try {
+      const base64Uri = await pickAndResizeSquareImage();
+      if (!base64Uri) return;
+      const { group: updated } = await groupsApi.updatePhoto(id!, base64Uri);
+      setGroup((prev) => (prev ? { ...prev, avatarUrl: updated.avatarUrl } : prev));
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function handleRemoveGroupPhoto() {
+    setUploadingPhoto(true);
+    try {
+      const { group: updated } = await groupsApi.updatePhoto(id!, null);
+      setGroup((prev) => (prev ? { ...prev, avatarUrl: updated.avatarUrl } : prev));
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to remove photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  function handleGroupPhotoPress() {
+    Alert.alert('Group Photo', undefined, [
+      { text: 'Change Photo', onPress: handleChangeGroupPhoto },
+      ...(group?.avatarUrl
+        ? [{ text: 'Remove Photo', style: 'destructive' as const, onPress: handleRemoveGroupPhoto }]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>;
   }
@@ -294,6 +333,7 @@ export default function GroupDetailScreen() {
 
   const myBalance = balances.find((b) => b.user.id === user?.id);
   const isAdmin = group.members.find((m) => m.user.id === user?.id)?.role === 'ADMIN';
+  const isOwner = group.createdById === user?.id;
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />;
 
   return (
@@ -303,6 +343,22 @@ export default function GroupDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
+        <View style={styles.groupAvatarWrapper}>
+          <GroupAvatar uri={group.avatarUrl} size={44} />
+          {isOwner && (
+            <TouchableOpacity
+              style={styles.cameraOverlay}
+              onPress={handleGroupPhotoPress}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Ionicons name="camera" size={12} color="#fff" />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.headerInfo}>
           <Text style={styles.groupName}>{group.name}</Text>
           <Text style={styles.memberCount}>{group.members.length} members</Text>
@@ -600,6 +656,20 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: Spacing.xs },
   backText: { fontSize: 28, color: Colors.primary, lineHeight: 28 },
+  groupAvatarWrapper: { position: 'relative' },
+  cameraOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.surface,
+  },
   headerInfo: { flex: 1 },
   groupName: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
   memberCount: { fontSize: FontSize.sm, color: Colors.textSecondary },

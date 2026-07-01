@@ -61,6 +61,7 @@ model Group {
   id          String   @id @default(cuid())
   name        String
   description String?
+  avatarUrl   String?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

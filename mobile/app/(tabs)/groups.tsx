@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { groupsApi, friendsApi, Group, User } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { Avatar } from '../../src/components/Avatar';
+import { GroupAvatar } from '../../src/components/GroupAvatar';
 import { Card } from '../../src/components/Card';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
 
@@ -141,9 +142,7 @@ export default function GroupsScreen() {
             >
               <Card style={styles.groupCard}>
                 <View style={styles.groupHeader}>
-                  <View style={styles.groupIcon}>
-                    <Text style={styles.groupIconText}>{group.name[0].toUpperCase()}</Text>
-                  </View>
+                  <GroupAvatar uri={group.avatarUrl} size={48} />
                   <View style={styles.groupInfo}>
                     <Text style={styles.groupName}>{group.name}</Text>
                     {group.description && (
@@ -237,15 +236,6 @@ const styles = StyleSheet.create({
   emptyDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
   groupCard: { gap: Spacing.sm },
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  groupIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  groupIconText: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.primary },
   groupInfo: { flex: 1 },
   groupName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
   groupDesc: { fontSize: FontSize.sm, color: Colors.textSecondary },

@@ -118,6 +118,37 @@ export async function removeGroupMember(req: AuthRequest, res: Response): Promis
   res.json({ success: true });
 }
 
+export async function updateGroupPhoto(req: AuthRequest, res: Response): Promise<void> {
+  const { id: groupId } = req.params;
+  const result = z.object({ avatarUrl: z.string().nullable() }).safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) {
+    res.status(404).json({ error: 'Group not found' });
+    return;
+  }
+  if (group.createdById !== req.userId) {
+    res.status(403).json({ error: 'Only the group creator can change the group photo' });
+    return;
+  }
+
+  const updated = await prisma.group.update({
+    where: { id: groupId },
+    data: { avatarUrl: result.data.avatarUrl },
+    include: {
+      members: {
+        include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+      },
+    },
+  });
+
+  res.json({ group: updated });
+}
+
 export async function deleteGroup(req: AuthRequest, res: Response): Promise<void> {
   const { id: groupId } = req.params;
 

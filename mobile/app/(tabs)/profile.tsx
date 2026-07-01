@@ -13,14 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { authApi } from '../../src/services/api';
 import { Avatar } from '../../src/components/Avatar';
 import { Card } from '../../src/components/Card';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
+import { pickAndResizeSquareImage } from '../../src/utils/imagePicker';
 
 type EditingField = 'name' | null;
 
@@ -75,31 +74,10 @@ export default function ProfileScreen() {
   }
 
   async function handlePickPhoto() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your photo library to upload a profile picture.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (result.canceled) return;
-
     setUploadingPhoto(true);
     try {
-      const resized = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 200, height: 200 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-      if (!resized.base64) throw new Error('Failed to process image.');
-
-      const base64Uri = `data:image/jpeg;base64,${resized.base64}`;
+      const base64Uri = await pickAndResizeSquareImage();
+      if (!base64Uri) return;
       const { user: updated } = await authApi.updateProfile({ avatarUrl: base64Uri });
       await updateUser(updated);
     } catch (err: any) {

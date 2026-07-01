@@ -33,6 +33,8 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
@@ -75,6 +77,8 @@ export const groupsApi = {
     api.delete<{ success: boolean }>(`/groups/${groupId}/members/${userId}`),
   getBalances: (groupId: string) =>
     api.get<{ balances: Balance[] }>(`/groups/${groupId}/balances`),
+  updatePhoto: (groupId: string, avatarUrl: string | null) =>
+    api.patch<{ group: Group }>(`/groups/${groupId}/photo`, { avatarUrl }),
   delete: (groupId: string) =>
     api.delete<{ success: boolean }>(`/groups/${groupId}`),
 };
@@ -163,6 +167,7 @@ export interface Group {
   id: string;
   name: string;
   description?: string;
+  avatarUrl?: string;
   createdById: string;
   members: GroupMember[];
   expenses?: Expense[];
