@@ -10,7 +10,15 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -26,9 +34,11 @@ import { Card } from '../../src/components/Card';
 import { BalanceBadge } from '../../src/components/BalanceBadge';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
 
-type Tab = 'expenses' | 'balances' | 'members';
+const PAGES = ['Expenses', 'Balances', 'Members'] as const;
+const SPRING_CONFIG = { damping: 20, stiffness: 200, mass: 0.8 };
 
 export default function GroupDetailScreen() {
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const user = useAuthStore((s) => s.user);
@@ -36,13 +46,55 @@ export default function GroupDetailScreen() {
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('expenses');
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const [showAddExpense, setShowAddExpense] = useState(false);
 
   // Add expense form
   const [expDesc, setExpDesc] = useState('');
   const [expAmount, setExpAmount] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // Pager animation
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
+
+  const tabIndicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -translateX.value / PAGES.length }],
+  }));
+
+  const pagerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const goToPage = useCallback(
+    (index: number) => {
+      setActivePageIndex(index);
+      translateX.value = withSpring(-index * width, SPRING_CONFIG);
+    },
+    [width],
+  );
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
+    .onBegin(() => {
+      startX.value = translateX.value;
+    })
+    .onUpdate(({ translationX }) => {
+      const next = startX.value + translationX;
+      const minX = -(PAGES.length - 1) * width;
+      translateX.value = Math.max(minX, Math.min(0, next));
+    })
+    .onEnd(({ velocityX }) => {
+      const closestPage = Math.round(-translateX.value / width);
+      let target = Math.max(0, Math.min(PAGES.length - 1, closestPage));
+
+      if (velocityX < -500 && target < PAGES.length - 1) target += 1;
+      else if (velocityX > 500 && target > 0) target -= 1;
+
+      translateX.value = withSpring(-target * width, SPRING_CONFIG);
+      runOnJS(setActivePageIndex)(target);
+    });
 
   async function load() {
     if (!id) return;
@@ -115,6 +167,7 @@ export default function GroupDetailScreen() {
   }
 
   const myBalance = balances.find((b) => b.user.id === user?.id);
+  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -140,99 +193,88 @@ export default function GroupDetailScreen() {
         </View>
       )}
 
-      {/* Tabs */}
+      {/* Tab bar with sliding indicator */}
       <View style={styles.tabs}>
-        {(['expenses', 'balances', 'members'] as Tab[]).map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tabBtn, activeTab === t && styles.tabBtnActive]}
-            onPress={() => setActiveTab(t)}
-          >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+        <Animated.View style={[styles.tabIndicator, tabIndicatorStyle]} />
+        {PAGES.map((name, i) => (
+          <TouchableOpacity key={i} style={styles.tabBtn} onPress={() => goToPage(i)}>
+            <Text style={[styles.tabText, activePageIndex === i && styles.tabTextActive]}>
+              {name}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-      >
-        {activeTab === 'expenses' && (
-          <>
-            {(group.expenses ?? []).length === 0 ? (
-              <Text style={styles.empty}>No expenses yet. Add one!</Text>
-            ) : (
-              (group.expenses ?? []).map((exp: Expense) => {
-                const myShare = exp.shares.find((s) => s.user.id === user?.id);
-                const iPaid = exp.paidBy.id === user?.id;
-                return (
-                  <Card key={exp.id}>
-                    <View style={styles.expRow}>
-                      <Avatar name={exp.paidBy.name} size={40} />
-                      <View style={styles.expInfo}>
-                        <Text style={styles.expDesc}>{exp.description}</Text>
-                        <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
-                        <Text style={styles.expDate}>
-                          {new Date(exp.createdAt).toLocaleDateString()}
-                        </Text>
+      {/* Pager */}
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.pager}>
+          <Animated.View style={[{ flexDirection: 'row', flex: 1, width: width * PAGES.length }, pagerStyle]}>
+
+            {/* Expenses */}
+            <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
+              {(group.expenses ?? []).length === 0 ? (
+                <Text style={styles.empty}>No expenses yet. Add one!</Text>
+              ) : (
+                (group.expenses ?? []).map((exp: Expense) => {
+                  const myShare = exp.shares.find((s) => s.user.id === user?.id);
+                  const iPaid = exp.paidBy.id === user?.id;
+                  return (
+                    <Card key={exp.id}>
+                      <View style={styles.expRow}>
+                        <Avatar name={exp.paidBy.name} size={40} />
+                        <View style={styles.expInfo}>
+                          <Text style={styles.expDesc}>{exp.description}</Text>
+                          <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
+                          <Text style={styles.expDate}>{new Date(exp.createdAt).toLocaleDateString()}</Text>
+                        </View>
+                        {myShare && !iPaid && <BalanceBadge amount={-myShare.amount} size="sm" />}
+                        {iPaid && myShare && <BalanceBadge amount={Number(exp.amount) - Number(myShare.amount)} size="sm" />}
                       </View>
-                      {myShare && !iPaid && (
-                        <BalanceBadge amount={-myShare.amount} size="sm" />
+                      {(iPaid || group.members.find((m) => m.userId === user?.id)?.role === 'ADMIN') && (
+                        <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteExpense(exp.id)}>
+                          <Text style={styles.deleteBtnText}>Delete</Text>
+                        </TouchableOpacity>
                       )}
-                      {iPaid && myShare && (
-                        <BalanceBadge amount={Number(exp.amount) - Number(myShare.amount)} size="sm" />
-                      )}
-                    </View>
-                    {(iPaid || group.members.find((m) => m.userId === user?.id)?.role === 'ADMIN') && (
-                      <TouchableOpacity
-                        style={styles.deleteBtn}
-                        onPress={() => deleteExpense(exp.id)}
-                      >
-                        <Text style={styles.deleteBtnText}>Delete</Text>
-                      </TouchableOpacity>
-                    )}
-                  </Card>
-                );
-              })
-            )}
-          </>
-        )}
+                    </Card>
+                  );
+                })
+              )}
+            </ScrollView>
 
-        {activeTab === 'balances' && (
-          <>
-            {balances.map((b) => (
-              <Card key={b.user.id} style={styles.balanceRow}>
-                <Avatar name={b.user.name} size={40} />
-                <View style={styles.balanceInfo}>
-                  <Text style={styles.balanceName}>{b.user.name}</Text>
-                </View>
-                <BalanceBadge amount={b.net} size="md" />
-              </Card>
-            ))}
-          </>
-        )}
-
-        {activeTab === 'members' && (
-          <>
-            {group.members.map((m) => (
-              <Card key={m.id} style={styles.memberRow}>
-                <Avatar name={m.user.name} size={40} />
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{m.user.name}</Text>
-                  <Text style={styles.memberEmail}>{m.user.email}</Text>
-                </View>
-                {m.role === 'ADMIN' && (
-                  <View style={styles.adminBadge}>
-                    <Text style={styles.adminText}>Admin</Text>
+            {/* Balances */}
+            <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
+              {balances.map((b) => (
+                <Card key={b.user.id} style={styles.balanceRow}>
+                  <Avatar name={b.user.name} size={40} />
+                  <View style={styles.balanceInfo}>
+                    <Text style={styles.balanceName}>{b.user.name}</Text>
                   </View>
-                )}
-              </Card>
-            ))}
-          </>
-        )}
-      </ScrollView>
+                  <BalanceBadge amount={b.net} size="md" />
+                </Card>
+              ))}
+            </ScrollView>
+
+            {/* Members */}
+            <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
+              {group.members.map((m) => (
+                <Card key={m.id} style={styles.memberRow}>
+                  <Avatar name={m.user.name} size={40} />
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{m.user.name}</Text>
+                    <Text style={styles.memberEmail}>{m.user.email}</Text>
+                  </View>
+                  {m.role === 'ADMIN' && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminText}>Admin</Text>
+                    </View>
+                  )}
+                </Card>
+              ))}
+            </ScrollView>
+
+          </Animated.View>
+        </View>
+      </GestureDetector>
 
       {/* Add Expense Modal */}
       <Modal visible={showAddExpense} animationType="slide" transparent>
@@ -310,10 +352,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: '33.333%',
+    height: 2,
+    backgroundColor: Colors.primary,
+  },
   tabBtn: { flex: 1, paddingVertical: Spacing.md, alignItems: 'center' },
-  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textMuted },
   tabTextActive: { color: Colors.primary },
+  pager: { flex: 1, overflow: 'hidden' },
   content: { padding: Spacing.md, gap: Spacing.sm },
   empty: { color: Colors.textMuted, textAlign: 'center', paddingVertical: Spacing.xl },
   expRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
@@ -321,11 +371,7 @@ const styles = StyleSheet.create({
   expDesc: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
   expPaid: { fontSize: FontSize.sm, color: Colors.textSecondary },
   expDate: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  deleteBtn: {
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    alignItems: 'flex-end',
-  },
+  deleteBtn: { marginTop: Spacing.sm, paddingVertical: Spacing.xs, alignItems: 'flex-end' },
   deleteBtnText: { color: Colors.danger, fontSize: FontSize.sm, fontWeight: '600' },
   balanceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   balanceInfo: { flex: 1 },
