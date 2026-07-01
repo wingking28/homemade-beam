@@ -16,6 +16,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -79,6 +80,21 @@ export default function GroupDetailScreen() {
     transform: [{ translateX: translateX.value }],
   }));
 
+  // Modal animations — backdrop fades, sheet slides independently
+  const addExpenseBackdrop = useSharedValue(0);
+  const addExpenseSheetY = useSharedValue(600);
+  const detailBackdrop = useSharedValue(0);
+  const detailSheetY = useSharedValue(600);
+
+  const addExpenseBackdropStyle = useAnimatedStyle(() => ({ opacity: addExpenseBackdrop.value }));
+  const addExpenseSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: addExpenseSheetY.value }],
+  }));
+  const detailBackdropStyle = useAnimatedStyle(() => ({ opacity: detailBackdrop.value }));
+  const detailSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: detailSheetY.value }],
+  }));
+
   const goToPage = useCallback(
     (index: number) => {
       setActivePageIndex(index);
@@ -86,6 +102,32 @@ export default function GroupDetailScreen() {
     },
     [width],
   );
+
+  function openAddExpenseModal() {
+    setShowAddExpense(true);
+    addExpenseBackdrop.value = withTiming(1, { duration: 220 });
+    addExpenseSheetY.value = withSpring(0, SPRING_CONFIG);
+  }
+
+  function closeAddExpenseModal() {
+    addExpenseBackdrop.value = withTiming(0, { duration: 180 });
+    addExpenseSheetY.value = withTiming(600, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(setShowAddExpense)(false);
+    });
+  }
+
+  function openDetailModal(expense: Expense) {
+    setSelectedExpense(expense);
+    detailBackdrop.value = withTiming(1, { duration: 220 });
+    detailSheetY.value = withSpring(0, SPRING_CONFIG);
+  }
+
+  function closeDetailModal() {
+    detailBackdrop.value = withTiming(0, { duration: 180 });
+    detailSheetY.value = withTiming(600, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(setSelectedExpense)(null);
+    });
+  }
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-20, 20])
@@ -185,7 +227,7 @@ export default function GroupDetailScreen() {
     setAdding(true);
     try {
       await expensesApi.create(id!, { description: expDesc.trim(), amount });
-      setShowAddExpense(false);
+      closeAddExpenseModal();
       setExpDesc('');
       setExpAmount('');
       load();
@@ -221,7 +263,7 @@ export default function GroupDetailScreen() {
     setSettling(true);
     try {
       await expensesApi.settleShare(shareId);
-      setSelectedExpense(null);
+      closeDetailModal();
       load();
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed');
@@ -252,7 +294,7 @@ export default function GroupDetailScreen() {
           <Text style={styles.groupName}>{group.name}</Text>
           <Text style={styles.memberCount}>{group.members.length} members</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddExpense(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddExpenseModal}>
           <Text style={styles.addBtnText}>+ Expense</Text>
         </TouchableOpacity>
       </View>
@@ -291,7 +333,7 @@ export default function GroupDetailScreen() {
                   const myShare = exp.shares.find((s) => s.user.id === user?.id);
                   const iPaid = exp.paidBy.id === user?.id;
                   return (
-                    <TouchableOpacity key={exp.id} onPress={() => setSelectedExpense(exp)} activeOpacity={0.7}>
+                    <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp)} activeOpacity={0.7}>
                       <Card>
                         <View style={styles.expRow}>
                           <Avatar name={exp.paidBy.name} size={40} />
@@ -331,7 +373,7 @@ export default function GroupDetailScreen() {
                 <Text style={styles.empty}>No completed expenses yet.</Text>
               ) : (
                 historyExpenses.map((exp) => (
-                  <TouchableOpacity key={exp.id} onPress={() => setSelectedExpense(exp)} activeOpacity={0.7}>
+                  <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp)} activeOpacity={0.7}>
                     <Card>
                       <View style={styles.expRow}>
                         <Avatar name={exp.paidBy.name} size={40} />
@@ -387,9 +429,10 @@ export default function GroupDetailScreen() {
       </GestureDetector>
 
       {/* Add Expense Modal */}
-      <Modal visible={showAddExpense} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + Spacing.md }]}>
+      <Modal visible={showAddExpense} animationType="none" transparent statusBarTranslucent>
+        <View style={styles.modalContainer}>
+          <Animated.View style={[styles.backdrop, addExpenseBackdropStyle]} />
+          <Animated.View style={[styles.modalSheet, addExpenseSheetStyle, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + 12 }]}>
             <Text style={styles.modalTitle}>Add Expense</Text>
             <Text style={styles.modalHint}>Will be split equally among all {group.members.length} members.</Text>
             <TextInput
@@ -408,21 +451,22 @@ export default function GroupDetailScreen() {
               keyboardType="decimal-pad"
             />
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setShowAddExpense(false)}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={closeAddExpenseModal}>
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.confirmBtn} onPress={addExpense} disabled={adding}>
                 {adding ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmBtnText}>Add Expense</Text>}
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
       {/* Expense Detail Modal */}
-      <Modal visible={!!selectedExpense} animationType="slide" transparent onRequestClose={() => setSelectedExpense(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + Spacing.md }]}>
+      <Modal visible={!!selectedExpense} animationType="none" transparent statusBarTranslucent onRequestClose={closeDetailModal}>
+        <View style={styles.modalContainer}>
+          <Animated.View style={[styles.backdrop, detailBackdropStyle]} />
+          <Animated.View style={[styles.modalSheet, detailSheetStyle, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + 12 }]}>
             {selectedExpense && (
               <>
                 <View style={styles.expDetailHeader}>
@@ -432,7 +476,7 @@ export default function GroupDetailScreen() {
                       {selectedExpense.paidBy.name} paid ${Number(selectedExpense.amount).toFixed(2)} · {new Date(selectedExpense.createdAt).toLocaleDateString()}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelectedExpense(null)} style={styles.closeBtn}>
+                  <TouchableOpacity onPress={closeDetailModal} style={styles.closeBtn}>
                     <Text style={styles.closeBtnText}>✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -484,7 +528,7 @@ export default function GroupDetailScreen() {
                   <TouchableOpacity
                     style={styles.deleteExpenseBtn}
                     onPress={() => {
-                      setSelectedExpense(null);
+                      closeDetailModal();
                       deleteExpense(selectedExpense.id);
                     }}
                   >
@@ -493,7 +537,7 @@ export default function GroupDetailScreen() {
                 )}
               </>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -663,7 +707,12 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
   modalSheet: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xl,

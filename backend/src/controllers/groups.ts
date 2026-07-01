@@ -146,21 +146,23 @@ export async function getGroupBalances(req: AuthRequest, res: Response): Promise
     return;
   }
 
+  // Only unsettled expenses have outstanding balances
   const expenses = await prisma.expense.findMany({
-    where: { groupId },
+    where: { groupId, isSettled: false },
     include: { shares: true },
   });
 
-  // net[userId] = total paid - total owed across all expenses
+  // net[userId]: positive = owed by others, negative = owes others
+  // Only unpaid shares from non-payers represent real outstanding obligations
   const net: Record<string, Decimal> = {};
 
   for (const expense of expenses) {
-    const paidById = expense.paidById;
-    if (!net[paidById]) net[paidById] = new Decimal(0);
-    net[paidById] = net[paidById].plus(expense.amount);
-
     for (const share of expense.shares) {
-      if (share.isPaid) continue;
+      if (share.userId === expense.paidById || share.isPaid) continue;
+
+      if (!net[expense.paidById]) net[expense.paidById] = new Decimal(0);
+      net[expense.paidById] = net[expense.paidById].plus(share.amount);
+
       if (!net[share.userId]) net[share.userId] = new Decimal(0);
       net[share.userId] = net[share.userId].minus(share.amount);
     }
