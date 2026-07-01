@@ -7,10 +7,19 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useTabNavigation } from '../../src/context/TabNavigationContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupsApi, paymentRequestsApi, Group, PaymentRequest } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { Avatar } from '../../src/components/Avatar';
@@ -18,13 +27,53 @@ import { Card } from '../../src/components/Card';
 import { BalanceBadge } from '../../src/components/BalanceBadge';
 import { Colors, Spacing, FontSize, Radius } from '../../src/constants/theme';
 
+const SPRING_CONFIG = { damping: 20, stiffness: 200, mass: 0.8 };
+
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { goToTab } = useTabNavigation();
   const [groups, setGroups] = useState<Group[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
+  const [settling, setSettling] = useState(false);
+
+  const detailBackdrop = useSharedValue(0);
+  const detailSheetY = useSharedValue(600);
+
+  const detailBackdropStyle = useAnimatedStyle(() => ({ opacity: detailBackdrop.value }));
+  const detailSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: detailSheetY.value }],
+  }));
+
+  function openRequestModal(req: PaymentRequest) {
+    setSelectedRequest(req);
+    detailBackdrop.value = withTiming(1, { duration: 220 });
+    detailSheetY.value = withSpring(0, SPRING_CONFIG);
+  }
+
+  function closeRequestModal() {
+    detailBackdrop.value = withTiming(0, { duration: 180 });
+    detailSheetY.value = withTiming(600, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(setSelectedRequest)(null);
+    });
+  }
+
+  async function markAsPaid(id: string) {
+    setSettling(true);
+    try {
+      await paymentRequestsApi.updateStatus(id, 'PAID');
+      closeRequestModal();
+      load();
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSettling(false);
+    }
+  }
 
   async function load() {
     try {
@@ -145,20 +194,62 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pending Requests</Text>
             {pendingReceived.slice(0, 3).map((req) => (
-              <Card key={req.id} style={styles.requestCard}>
-                <View style={styles.requestRow}>
-                  <Avatar name={req.sender.name} size={36} />
-                  <View style={styles.requestInfo}>
-                    <Text style={styles.requestSender}>{req.sender.name}</Text>
-                    <Text style={styles.requestDesc}>{req.description}</Text>
+              <TouchableOpacity key={req.id} onPress={() => openRequestModal(req)} activeOpacity={0.7}>
+                <Card style={styles.requestCard}>
+                  <View style={styles.requestRow}>
+                    <Avatar name={req.sender.name} size={36} />
+                    <View style={styles.requestInfo}>
+                      <Text style={styles.requestSender}>{req.sender.name}</Text>
+                      <Text style={styles.requestDesc}>{req.description}</Text>
+                    </View>
+                    <BalanceBadge amount={-Number(req.amount)} size="sm" firstPerson />
                   </View>
-                  <BalanceBadge amount={-Number(req.amount)} size="sm" firstPerson />
-                </View>
-              </Card>
+                </Card>
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </ScrollView>
+
+      {/* Request Detail Modal */}
+      <Modal visible={!!selectedRequest} animationType="none" transparent statusBarTranslucent onRequestClose={closeRequestModal}>
+        <View style={styles.modalContainer}>
+          <Animated.View style={[styles.backdrop, detailBackdropStyle]} />
+          <Animated.View style={[styles.modalSheet, detailSheetStyle, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + 12 }]}>
+            {selectedRequest && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalHeaderInfo}>
+                    <Text style={styles.modalTitle}>{selectedRequest.description}</Text>
+                    <Text style={styles.modalMeta}>
+                      From {selectedRequest.sender.name} · {new Date(selectedRequest.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={closeRequestModal} style={styles.closeBtn}>
+                    <Text style={styles.closeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>Amount requested</Text>
+                  <Text style={styles.amountValue}>${Number(selectedRequest.amount).toFixed(2)}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.settleBtn}
+                  onPress={() => markAsPaid(selectedRequest.id)}
+                  disabled={settling}
+                >
+                  {settling
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.settleBtnText}>Mark as Paid</Text>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -203,4 +294,42 @@ const styles = StyleSheet.create({
   requestInfo: { flex: 1 },
   requestSender: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
   requestDesc: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  modalHeaderInfo: { flex: 1 },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text },
+  modalMeta: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  closeBtn: { padding: Spacing.xs },
+  closeBtnText: { fontSize: FontSize.md, color: Colors.textMuted },
+  amountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  amountLabel: { fontSize: FontSize.md, color: Colors.textSecondary, fontWeight: '500' },
+  amountValue: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text },
+  settleBtn: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+  },
+  settleBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
 });
