@@ -35,6 +35,8 @@ export default function HomeScreen() {
   const { goToTab } = useTabNavigation();
   const [groups, setGroups] = useState<Group[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
+  const [groupOwed, setGroupOwed] = useState(0);
+  const [groupOwing, setGroupOwing] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,6 +85,20 @@ export default function HomeScreen() {
       ]);
       setGroups(g.groups);
       setRequests(r.requests);
+
+      const userId = useAuthStore.getState().user?.id;
+      const balanceResults = await Promise.all(g.groups.map((group) => groupsApi.getBalances(group.id)));
+      let owed = 0;
+      let owing = 0;
+      balanceResults.forEach((result) => {
+        const mine = result.balances.find((b) => b.user.id === userId);
+        if (mine) {
+          if (mine.net > 0) owed += mine.net;
+          else owing += Math.abs(mine.net);
+        }
+      });
+      setGroupOwed(owed);
+      setGroupOwing(owing);
     } catch {
       // silent
     } finally {
@@ -102,8 +118,8 @@ export default function HomeScreen() {
     (r) => r.senderId === user?.id && r.status === 'PENDING'
   );
 
-  const totalOwed = pendingSent.reduce((s, r) => s + Number(r.amount), 0);
-  const totalOwing = pendingReceived.reduce((s, r) => s + Number(r.amount), 0);
+  const totalOwed = pendingSent.reduce((s, r) => s + Number(r.amount), 0) + groupOwed;
+  const totalOwing = pendingReceived.reduce((s, r) => s + Number(r.amount), 0) + groupOwing;
   const netBalance = totalOwed - totalOwing;
 
   if (loading) {
