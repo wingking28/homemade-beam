@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   useWindowDimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -467,7 +469,10 @@ export default function GroupDetailScreen() {
 
       {/* Add Expense Modal */}
       <Modal visible={showAddExpense} animationType="none" transparent statusBarTranslucent>
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <Animated.View style={[styles.backdrop, addExpenseBackdropStyle]} />
           <Animated.View style={[styles.modalSheet, addExpenseSheetStyle, { paddingBottom: Math.max(Spacing.lg, insets.bottom) + 12 }]}>
             <Text style={styles.modalTitle}>Add Expense</Text>
@@ -496,7 +501,7 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Expense Detail Modal */}

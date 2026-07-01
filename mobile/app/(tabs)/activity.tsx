@@ -10,6 +10,8 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -340,7 +342,10 @@ export default function ActivityScreen() {
 
       {/* Create Request Modal */}
       <Modal visible={showCreate} animationType="none" transparent statusBarTranslucent onRequestClose={closeCreate}>
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <Animated.View style={[styles.backdrop, createBackdropStyle]} />
           <Animated.View style={[styles.modalSheet, createSheetStyle, { paddingBottom: Spacing.lg + insets.bottom }]}>
             <Text style={styles.modalTitle}>New Payment Request</Text>
@@ -386,7 +391,7 @@ export default function ActivityScreen() {
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
