@@ -196,11 +196,13 @@ npm install -g eas-cli
 eas login   # log in with your Expo account
 ```
 
+`mobile/.env.production` sets `EXPO_PUBLIC_API_URL` to the Railway production URL. EAS Build's `production` profile (the default when `--platform` is used without `--profile`) loads this file automatically, so it doesn't need to be passed inline.
+
 #### Android
 
 ```bash
 cd mobile
-EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform android
+eas build --platform android
 ```
 
 EAS will build in the cloud and provide a download link for the `.apk`. Install it directly on a device via the link, or submit to the Play Store with:
@@ -213,7 +215,7 @@ eas submit --platform android
 
 ```bash
 cd mobile
-EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform ios
+eas build --platform ios
 ```
 
 > iOS builds require an Apple Developer account ($99/year). EAS will prompt you to log in and will manage provisioning profiles automatically.
@@ -227,7 +229,7 @@ eas submit --platform ios
 #### Build both platforms at once
 
 ```bash
-EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform all
+eas build --platform all
 ```
 
 ---
