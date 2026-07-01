@@ -48,7 +48,7 @@ export default function RegisterScreen() {
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Beam and start splitting bills effortlessly</Text>
+          <Text style={styles.subtitle}>Join Casino and start splitting bills effortlessly</Text>
         </View>
 
         <View style={styles.form}>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -45,10 +46,8 @@ export default function LoginScreen() {
     >
       <View style={styles.inner}>
         <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Text style={styles.logoSymbol}>⚡</Text>
-          </View>
-          <Text style={styles.logoText}>Beam</Text>
+          <Image source={require('../../assets/icon.png')} style={styles.logoIcon} />
+          <Text style={styles.logoText}>Casino</Text>
           <Text style={styles.tagline}>Split bills, keep friendships</Text>
         </View>
 
@@ -105,12 +104,9 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: Radius.xl,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
-  logoSymbol: { fontSize: 36 },
   logoText: {
     fontSize: FontSize.xxxl,
     fontWeight: '700',

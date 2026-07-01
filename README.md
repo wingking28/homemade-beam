@@ -141,6 +141,97 @@ npm start
 
 ---
 
+## Deployment
+
+### Database — Neon (PostgreSQL)
+
+The production database is hosted on **Neon** (serverless PostgreSQL) in the `ap-southeast-2` (Sydney) region.
+
+**Connection string format:**
+```
+postgresql://neondb_owner:<password>@ep-silent-mouse-a7am44s6-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
+
+**Run migrations against production** (one-off, from `backend/`):
+```bash
+DATABASE_URL="<neon-connection-string>" npx prisma migrate deploy
+```
+
+> Never run `prisma migrate dev` against production — use `migrate deploy` which only applies committed migrations.
+
+---
+
+### Backend — Railway
+
+The backend is deployed on **Railway** (Sydney region) at:
+```
+https://homemade-beam-production.up.railway.app
+```
+
+**Required environment variables in Railway:**
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Neon connection string (above) |
+| `JWT_SECRET` | A long random string — generate with `openssl rand -base64 32` |
+
+**Redeployment** is automatic on every push to the connected GitHub branch.
+
+**Health check:**
+```
+https://homemade-beam-production.up.railway.app/api/health
+→ {"status":"ok"}
+```
+
+---
+
+### Mobile — Expo EAS Build
+
+The mobile app is built using **Expo EAS Build** which produces native `.apk` (Android) and `.ipa` (iOS) binaries in the cloud.
+
+#### Prerequisites
+
+```bash
+npm install -g eas-cli
+eas login   # log in with your Expo account
+```
+
+#### Android
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform android
+```
+
+EAS will build in the cloud and provide a download link for the `.apk`. Install it directly on a device via the link, or submit to the Play Store with:
+
+```bash
+eas submit --platform android
+```
+
+#### iOS
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform ios
+```
+
+> iOS builds require an Apple Developer account ($99/year). EAS will prompt you to log in and will manage provisioning profiles automatically.
+
+Upload to TestFlight or the App Store with:
+
+```bash
+eas submit --platform ios
+```
+
+#### Build both platforms at once
+
+```bash
+EXPO_PUBLIC_API_URL=https://homemade-beam-production.up.railway.app/api eas build --platform all
+```
+
+---
+
 ## API Reference
 
 All endpoints (except auth) require `Authorization: Bearer <token>`.
