@@ -259,11 +259,10 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 4 },
   divider: { height: 1, backgroundColor: Colors.border },
   logoutBtn: {
-    borderWidth: 1.5,
-    borderColor: Colors.danger,
+    backgroundColor: Colors.danger,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
   },
-  logoutBtnText: { color: Colors.danger, fontWeight: '700', fontSize: FontSize.md },
+  logoutBtnText: { color: '#fff', fontWeight: '700', fontSize: FontSize.md },
 });
