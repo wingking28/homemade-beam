@@ -124,7 +124,7 @@ export default function ActivityScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.screenTitle}>Activity</Text>
+          <Text style={styles.screenTitle}>Requests</Text>
           <TouchableOpacity style={styles.newBtn} onPress={openCreate}>
             <Text style={styles.newBtnText}>+ Request</Text>
           </TouchableOpacity>
@@ -136,18 +136,20 @@ export default function ActivityScreen() {
             style={[styles.tabBtn, tab === 'received' && styles.tabBtnActive]}
             onPress={() => setTab('received')}
           >
-            <Text style={[styles.tabText, tab === 'received' && styles.tabTextActive]}>Received</Text>
+            <Text style={[styles.tabText, tab === 'received' && styles.tabTextActive]}>I Owe</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabBtn, tab === 'sent' && styles.tabBtnActive]}
             onPress={() => setTab('sent')}
           >
-            <Text style={[styles.tabText, tab === 'sent' && styles.tabTextActive]}>Sent</Text>
+            <Text style={[styles.tabText, tab === 'sent' && styles.tabTextActive]}>Owe Me</Text>
           </TouchableOpacity>
         </View>
 
         {filtered.length === 0 ? (
-          <Text style={styles.empty}>No {tab} requests yet.</Text>
+          <Text style={styles.empty}>
+            {tab === 'received' ? 'No requests to pay yet.' : 'No requests sent yet.'}
+          </Text>
         ) : (
           filtered.map((req) => {
             const other = tab === 'received' ? req.sender : req.receiver;

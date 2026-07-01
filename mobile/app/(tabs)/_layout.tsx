@@ -25,7 +25,7 @@ const TABS: { name: string; icon: IoniconsName; Screen: React.ComponentType }[] 
   { name: 'Home',     icon: 'home',    Screen: HomeScreen },
   { name: 'Friends',  icon: 'people',  Screen: FriendsScreen },
   { name: 'Groups',   icon: 'albums',  Screen: GroupsScreen },
-  { name: 'Activity', icon: 'receipt', Screen: ActivityScreen },
+  { name: 'Requests', icon: 'receipt', Screen: ActivityScreen },
   { name: 'Profile',  icon: 'person',  Screen: ProfileScreen },
 ];
 
