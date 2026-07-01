@@ -213,7 +213,7 @@ export default function HomeScreen() {
               <TouchableOpacity key={req.id} onPress={() => openRequestModal(req)} activeOpacity={0.7}>
                 <Card style={styles.requestCard}>
                   <View style={styles.requestRow}>
-                    <Avatar name={req.sender.name} size={36} />
+                    <Avatar name={req.sender.name} size={36} uri={req.sender.avatarUrl ?? undefined} />
                     <View style={styles.requestInfo}>
                       <Text style={styles.requestSender}>{req.sender.name}</Text>
                       <Text style={styles.requestDesc}>{req.description}</Text>

@@ -347,7 +347,7 @@ export default function GroupDetailScreen() {
                     <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp)} activeOpacity={0.7}>
                       <Card>
                         <View style={styles.expRow}>
-                          <Avatar name={exp.paidBy.name} size={40} />
+                          <Avatar name={exp.paidBy.name} size={40} uri={exp.paidBy.avatarUrl ?? undefined} />
                           <View style={styles.expInfo}>
                             <Text style={styles.expDesc}>{exp.description}</Text>
                             <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
@@ -413,7 +413,7 @@ export default function GroupDetailScreen() {
                   <TouchableOpacity key={exp.id} onPress={() => openDetailModal(exp, true)} activeOpacity={0.7}>
                     <Card>
                       <View style={styles.expRow}>
-                        <Avatar name={exp.paidBy.name} size={40} />
+                        <Avatar name={exp.paidBy.name} size={40} uri={exp.paidBy.avatarUrl ?? undefined} />
                         <View style={styles.expInfo}>
                           <Text style={styles.expDesc}>{exp.description}</Text>
                           <Text style={styles.expPaid}>{exp.paidBy.name} paid ${Number(exp.amount).toFixed(2)}</Text>
@@ -447,7 +447,7 @@ export default function GroupDetailScreen() {
             <ScrollView style={{ width }} contentContainerStyle={styles.content} refreshControl={refreshControl}>
               {group.members.map((m) => (
                 <Card key={m.id} style={styles.memberRow}>
-                  <Avatar name={m.user.name} size={40} />
+                  <Avatar name={m.user.name} size={40} uri={m.user.avatarUrl ?? undefined} />
                   <View style={styles.memberInfo}>
                     <Text style={styles.memberName}>{m.user.name}</Text>
                     <Text style={styles.memberEmail}>{m.user.email}</Text>
@@ -524,7 +524,7 @@ export default function GroupDetailScreen() {
                   const isMe = s.user.id === user?.id;
                   return (
                     <View key={s.id} style={styles.shareRow}>
-                      <Avatar name={s.user.name} size={36} />
+                      <Avatar name={s.user.name} size={36} uri={s.user.avatarUrl ?? undefined} />
                       <Text style={styles.shareName}>{isMe ? 'You' : s.user.name}</Text>
                       {isPayer ? (
                         <View style={styles.paidBadge}>

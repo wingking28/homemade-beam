@@ -294,7 +294,7 @@ export default function ActivityScreen() {
             return (
               <Card key={req.id} style={styles.reqCard}>
                 <View style={styles.reqRow}>
-                  <Avatar name={other.name} size={40} />
+                  <Avatar name={other.name} size={40} uri={other.avatarUrl ?? undefined} />
                   <View style={styles.reqInfo}>
                     <Text style={styles.reqName}>{other.name}</Text>
                     <Text style={styles.reqDesc}>{req.description}</Text>
@@ -353,7 +353,7 @@ export default function ActivityScreen() {
                   style={[styles.friendItem, selectedFriendId === f.id && styles.friendItemSelected]}
                   onPress={() => setSelectedFriendId(f.id)}
                 >
-                  <Avatar name={f.name} size={32} />
+                  <Avatar name={f.name} size={32} uri={f.avatarUrl ?? undefined} />
                   <Text style={styles.friendName}>{f.name}</Text>
                   {selectedFriendId === f.id && <Text style={styles.check}>✓</Text>}
                 </TouchableOpacity>

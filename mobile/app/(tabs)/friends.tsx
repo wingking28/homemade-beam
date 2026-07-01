@@ -156,7 +156,7 @@ export default function FriendsScreen() {
               searchResults.map((u) => (
                 <Card key={u.id} style={styles.userCard}>
                   <View style={styles.userRow}>
-                    <Avatar name={u.name} size={44} />
+                    <Avatar name={u.name} size={44} uri={u.avatarUrl ?? undefined} />
                     <View style={styles.userInfo}>
                       <Text style={styles.userName}>{u.name}</Text>
                       <Text style={styles.userEmail}>{u.email}</Text>
@@ -196,7 +196,7 @@ export default function FriendsScreen() {
             {requests.map((req) => (
               <Card key={req.id} style={styles.requestCard}>
                 <View style={styles.userRow}>
-                  <Avatar name={req.sender!.name} size={48} />
+                  <Avatar name={req.sender!.name} size={48} uri={req.sender!.avatarUrl ?? undefined} />
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{req.sender!.name}</Text>
                     <Text style={styles.userEmail}>{req.sender!.email}</Text>
@@ -242,7 +242,7 @@ export default function FriendsScreen() {
             friends.map((f) => (
               <Card key={f.id} style={styles.userCard}>
                 <View style={styles.userRow}>
-                  <Avatar name={f.name} size={44} />
+                  <Avatar name={f.name} size={44} uri={f.avatarUrl ?? undefined} />
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{f.name}</Text>
                     <Text style={styles.userEmail}>{f.email}</Text>

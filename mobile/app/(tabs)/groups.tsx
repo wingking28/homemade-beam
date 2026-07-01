@@ -155,7 +155,7 @@ export default function GroupsScreen() {
                 <View style={styles.avatarStack}>
                   {group.members.slice(0, 5).map((m, i) => (
                     <View key={m.id} style={[styles.avatarWrap, { left: i * 22 }]}>
-                      <Avatar name={m.user.name} size={28} />
+                      <Avatar name={m.user.name} size={28} uri={m.user.avatarUrl ?? undefined} />
                     </View>
                   ))}
                   {group.members.length > 5 && (
@@ -197,7 +197,7 @@ export default function GroupsScreen() {
                     style={[styles.friendItem, selected && styles.friendItemSelected]}
                     onPress={() => toggleFriend(f.id)}
                   >
-                    <Avatar name={f.name} size={36} />
+                    <Avatar name={f.name} size={36} uri={f.avatarUrl ?? undefined} />
                     <Text style={styles.friendName}>{f.name}</Text>
                     {selected && <Text style={styles.checkmark}>✓</Text>}
                   </TouchableOpacity>

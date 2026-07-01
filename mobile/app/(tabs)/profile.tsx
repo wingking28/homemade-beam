@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { authApi } from '../../src/services/api';
@@ -84,15 +85,21 @@ export default function ProfileScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
+      quality: 1,
     });
 
-    if (result.canceled || !result.assets[0].base64) return;
+    if (result.canceled) return;
 
-    const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
     setUploadingPhoto(true);
     try {
+      const resized = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 200, height: 200 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      if (!resized.base64) throw new Error('Failed to process image.');
+
+      const base64Uri = `data:image/jpeg;base64,${resized.base64}`;
       const { user: updated } = await authApi.updateProfile({ avatarUrl: base64Uri });
       await updateUser(updated);
     } catch (err: any) {
