@@ -18,15 +18,6 @@ A cross-platform mobile app (iOS & Android) for splitting expenses with friends 
 | Auth | JWT (30-day expiry) + bcrypt | Stateless, works well for mobile |
 | UI Design | Google Stitch MCP | AI-generated screens for rapid prototyping |
 
-### Why PostgreSQL over MongoDB
-
-This app's data is fundamentally **relational**:
-- Users ↔ Friends (many-to-many via FriendRequest)
-- Users ↔ Groups ↔ Expenses ↔ ExpenseShares (multi-level foreign keys)
-- Financial data needs **ACID transactions** — when creating an expense and its shares, both must succeed or fail together
-- Complex aggregate queries ("who owes whom across all groups") are natural SQL, not natural document queries
-- Prisma's type-safe client + PostgreSQL's `DECIMAL(12,2)` type prevents floating-point rounding errors in money
-
 ### Folder Structure
 
 ```
