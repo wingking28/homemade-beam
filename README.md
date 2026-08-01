@@ -14,7 +14,7 @@ A cross-platform mobile app (iOS & Android) for splitting expenses with friends 
 | Navigation | Expo Router (file-based) | Typed routes, deep linking, no manual stack configuration |
 | State | Zustand | Minimal boilerplate, simple async auth state |
 | Backend | Node.js + Express + TypeScript | Familiar, fast iteration, type-safe with Zod validation |
-| Database | **PostgreSQL** via Prisma ORM | See rationale below |
+| Database | **PostgreSQL** via Prisma ORM | Familar, innately relational data |
 | Auth | JWT (30-day expiry) + bcrypt | Stateless, works well for mobile |
 | UI Design | Google Stitch MCP | AI-generated screens for rapid prototyping |
 
